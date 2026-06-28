@@ -3,3 +3,10 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
+venv/
+__pycache__/
+*.pyc
+.env
+backend_stderr.log
+backend_stdout.log
+prediction_logs/
