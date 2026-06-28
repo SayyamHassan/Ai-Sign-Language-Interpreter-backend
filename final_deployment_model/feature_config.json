@@ -1,0 +1,27 @@
+{
+  "model_name": "ASL Citizen BiLSTM",
+  "model_file": "best_bilstm_model.keras",
+  "labels_file": "labels.npy",
+  "num_classes": 2731,
+  "sequence_length": 30,
+  "feature_size": 1692,
+  "input_shape": [30, 1692],
+  "landmark_type": "MediaPipe Holistic",
+  "features_used": {
+    "pose": true,
+    "face": true,
+    "left_hand": true,
+    "right_hand": true
+  },
+  "prediction_output": {
+    "top_k": 5,
+    "confidence_threshold": 0.50
+  },
+  "final_model_metrics": {
+    "top1_accuracy": 0.6692,
+    "top5_accuracy": 0.8871,
+    "macro_f1": 0.6555,
+    "weighted_f1": 0.6547,
+    "latency_ms_per_sample": 0.6895
+  }
+}
