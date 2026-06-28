@@ -1,0 +1,36 @@
+{
+    "model_name": "Hand-Motion Transformer",
+    "model_file": "best_hands_motion_transformer_model.keras",
+    "labels_file": "labels.npy",
+    "sequence_length": 30,
+    "coordinate_feature_size": 126,
+    "motion_feature_size": 126,
+    "total_feature_size": 252,
+    "num_hands": 2,
+    "landmarks_per_hand": 21,
+    "coordinates_per_landmark": 3,
+    "features_used": {
+        "left_hand": true,
+        "right_hand": true,
+        "motion": true,
+        "face": false,
+        "pose": false,
+        "shoulders": false
+    },
+    "normalization": {
+        "method": "wrist_centered_hand_size_normalization",
+        "description": "Each hand is normalized relative to its wrist and hand size. Missing hand values are filled with zeros."
+    },
+    "motion_features": {
+        "method": "frame_to_frame_difference",
+        "description": "Motion features are calculated by subtracting the previous frame hand features from the current frame hand features."
+    },
+    "input_shape": [30, 252],
+    "final_test_results": {
+        "top1_accuracy_percent": 65.49,
+        "top5_accuracy_percent": 89.56,
+        "macro_f1": 0.6389,
+        "weighted_f1": 0.6411,
+        "latency_ms_per_sample": 0.687
+    }
+}

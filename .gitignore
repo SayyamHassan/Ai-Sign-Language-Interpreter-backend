@@ -1,4 +1,16 @@
 venv/
 __pycache__/
 *.pyc
+<<<<<<< HEAD
 .env
+=======
+.env
+.DS_Store
+venv/
+__pycache__/
+*.pyc
+.env
+backend_stderr.log
+backend_stdout.log
+prediction_logs/
+>>>>>>> backend-updates
