@@ -1,18 +1,3 @@
-<<<<<<< HEAD
-# main.py
-from fastapi import FastAPI, File, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from typing import List
-import os
-from models.model import predict_gesture
-from pydantic import BaseModel
-from typing import List
-app = FastAPI(title="Gesture Interpreter API")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:4200"],
-=======
 import csv
 import json
 import time
@@ -103,6 +88,7 @@ COORDINATE_FEATURE_SIZE = int(config["coordinate_feature_size"])
 MOTION_FEATURE_SIZE = int(config["motion_feature_size"])
 TOTAL_FEATURE_SIZE = int(config["total_feature_size"])
 TOP_K = 5
+FAST_VARIANT_CONFIDENCE = 0.80
 
 labels = np.load(LABELS_PATH, allow_pickle=True)
 labels = np.array([str(label) for label in labels])
@@ -227,34 +213,10 @@ app.add_middleware(
         "http://localhost:4200",
         "http://127.0.0.1:4200"
     ],
->>>>>>> backend-updates
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-<<<<<<< HEAD
-class Landmark(BaseModel):
-    x: float
-    y: float
-    z: float
-
-class HandLandmarks(BaseModel):
-    landmarks: List[Landmark]
-
-gesture_history: List[str] = []
-
-
-@app.post("/api/gestures/detect-gesture")
-async def detect_gesture(data: HandLandmarks):
-    # data.landmarks is a list of 21 points
-    gesture_result = predict_gesture(data.landmarks)
-    gesture_history.append(gesture_result)
-    return {"gesture": gesture_result}
- 
- 
-#  .\venv\Scripts\Activate    
-#  uvicorn main:app --reload  
-=======
 
 
 # ============================================================
@@ -512,19 +474,33 @@ def predict_gesture(model_input: np.ndarray) -> Dict[str, Any]:
 
 def predict_best_live_variant(frames: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Runs prediction on small live-camera variants and returns the strongest one.
-    This helps when webcam handedness/mirroring differs from the dataset videos.
+    Runs the normal live-camera prediction first.
+    Extra mirrored/hand-swapped variants are only used when the normal result
+    is weak, because four model passes per request adds noticeable latency.
     """
 
+    original_model_input = build_model_input(
+        frames,
+        swap_hands=False,
+        mirror_x=False
+    )
+    original_result = predict_gesture(original_model_input)
+    original_result["input_variant"] = "original"
+
+    if original_result["confidence"] >= FAST_VARIANT_CONFIDENCE:
+        return {
+            "result": original_result,
+            "model_input": original_model_input
+        }
+
     variants = [
-        ("original", False, False),
         ("swapped_hands", True, False),
         ("mirrored_x", False, True),
         ("swapped_hands_mirrored_x", True, True)
     ]
 
-    best_result = None
-    best_model_input = None
+    best_result = original_result
+    best_model_input = original_model_input
 
     for variant_name, swap_hands, mirror_x in variants:
         model_input = build_model_input(
@@ -654,4 +630,3 @@ def health():
         "prediction_logging": True,
         "prediction_log_path": str(PREDICTION_LOG_PATH)
     }
->>>>>>> backend-updates
