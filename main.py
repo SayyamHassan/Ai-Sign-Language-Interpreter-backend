@@ -13,6 +13,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from grammar_service import (
+    OLLAMA_BASE_URL,
+    OLLAMA_MODEL,
+    complete_sentence as complete_grammar_sentence,
+    ollama_health
+)
 
 # ============================================================
 # CUSTOM POSITION EMBEDDING LAYER
@@ -203,8 +209,11 @@ initialize_prediction_log()
 
 app = FastAPI(
     title="Real-Time ASL Hand-Motion Transformer Backend",
-    description="FastAPI backend for ASL recognition using hand landmarks + motion features.",
-    version="1.0.0"
+    description=(
+        "FastAPI backend for ASL recognition using hand landmarks + motion "
+        "features, with a separate gloss-to-English grammar module."
+    ),
+    version="1.1.0"
 )
 
 app.add_middleware(
@@ -226,6 +235,13 @@ app.add_middleware(
 class GestureRequest(BaseModel):
     frames: Optional[List[Dict[str, Any]]] = None
     sequence: Optional[List[Dict[str, Any]]] = None
+
+class GrammarRequest(BaseModel):
+    """Finalized/accepted gloss sequence sent by the Angular frontend."""
+
+    glosses: Optional[List[str]] = None
+    raw_gloss: Optional[str] = None
+    use_local_llm: bool = True
 
 
 # ============================================================
@@ -362,7 +378,7 @@ def transform_coordinate_sequence(
         transformed[:, 0:63:3] *= -1
         transformed[:, 63:126:3] *= -1
 
-    return transformed.astype(np.float32)
+    return transformed.astype(np.float32)       
 
 
 def build_model_input(
@@ -532,7 +548,9 @@ def home():
         "model": config["model_name"],
         "input_shape": config["input_shape"],
         "labels": int(len(labels)),
-        "features": config["features_used"]
+        "features": config["features_used"],
+        "grammar_endpoint": "/api/grammar/complete-sentence",
+        "grammar_model": OLLAMA_MODEL
     }
 
 
@@ -596,6 +614,59 @@ def detect_gesture(request: GestureRequest):
             detail=str(error)
         )
 
+@app.post("/api/grammar/complete-sentence")
+def complete_sentence(request: GrammarRequest):
+    """
+    Convert a finalized ASL gloss sequence into a natural English sentence.
+
+    This route is separate from sign recognition. It must be called only after
+    the frontend has accepted/stabilized the predicted signs.
+    """
+
+    try:
+        glosses = request.glosses
+
+        if not glosses and request.raw_gloss:
+            glosses = request.raw_gloss.strip().split()
+
+        if not glosses:
+            raise ValueError(
+                "Request must contain a non-empty 'glosses' list or 'raw_gloss'."
+            )
+
+        start_time = time.time()
+        result = complete_grammar_sentence(
+            glosses=glosses,
+            use_local_llm=request.use_local_llm
+        )
+        result["processing_time_ms"] = round(
+            (time.time() - start_time) * 1000,
+            2
+        )
+
+        print(
+            f"[GRAMMAR] raw={result['raw_gloss']} | "
+            f"sentence={result['completed_sentence']} | "
+            f"method={result['method']} | "
+            f"time={result['processing_time_ms']:.2f} ms"
+        )
+
+        return result
+
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception as error:
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.get("/api/grammar/health")
+def grammar_health():
+    """Report local Ollama availability without affecting recognition."""
+
+    status = ollama_health()
+    status["fallback_available"] = True
+    return status
+
 
 @app.get("/api/log-info")
 def log_info():
@@ -628,5 +699,9 @@ def health():
         "model_output_shape": list(model.output_shape),
         "live_variants_enabled": True,
         "prediction_logging": True,
-        "prediction_log_path": str(PREDICTION_LOG_PATH)
+        "prediction_log_path": str(PREDICTION_LOG_PATH),
+        "grammar_module_enabled": True,
+        "grammar_model": OLLAMA_MODEL,
+        "ollama_base_url": OLLAMA_BASE_URL,
+        "grammar_fallback_available": True
     }
