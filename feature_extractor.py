@@ -79,16 +79,7 @@ def normalize_hand(hand_landmarks: Optional[List[Any]]) -> np.ndarray:
 
     return points.flatten().astype(np.float32)
 
-
 def extract_frame_features(frame: Dict[str, Any]) -> np.ndarray:
-    """
-    Creates 126 coordinate features from one frame.
-
-    left hand = 63 features
-    right hand = 63 features
-    total = 126 features
-    """
-
     left_hand = (
         frame.get("left_hand")
         or frame.get("leftHand")
@@ -112,7 +103,6 @@ def extract_frame_features(frame: Dict[str, Any]) -> np.ndarray:
     )
 
     return frame_features.astype(np.float32)
-
 
 def transform_coordinate_sequence(
     coordinate_sequence: np.ndarray,
@@ -163,6 +153,9 @@ def build_model_input(
         raise ValueError("No frames received.")
 
     coordinate_sequence = []
+    left_present_count = 0
+    right_present_count = 0
+    both_present_count = 0
 
     for frame in frames:
         if not isinstance(frame, dict):
@@ -170,6 +163,23 @@ def build_model_input(
 
         features = extract_frame_features(frame)
         coordinate_sequence.append(features)
+
+        left_present = np.count_nonzero(features[0:63]) > 0
+        right_present = np.count_nonzero(features[63:126]) > 0
+
+        if left_present:
+            left_present_count += 1
+        if right_present:
+            right_present_count += 1
+        if left_present and right_present:
+            both_present_count += 1
+
+    print(
+        f"[HAND TRACKING] frames={len(frames)} "
+        f"left_present={left_present_count} "
+        f"right_present={right_present_count} "
+        f"both_present={both_present_count}"
+    )
 
     coordinate_sequence = np.array(coordinate_sequence, dtype=np.float32)
 
@@ -212,7 +222,10 @@ def build_model_input(
         posinf=0.0,
         neginf=0.0
     )
-
+    print("Model input shape:", full_sequence.shape)
+    print("Min:", np.min(full_sequence))
+    print("Max:", np.max(full_sequence))
+    print("Mean:", np.mean(full_sequence))
     return np.expand_dims(full_sequence.astype(np.float32), axis=0)
 __all__ = [
     "build_model_input",
