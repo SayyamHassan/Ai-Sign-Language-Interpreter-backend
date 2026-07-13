@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import traceback
 from typing import Any, Dict, Iterable, List
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -381,7 +382,12 @@ def complete_sentence(
     if use_local_llm:
         try:
             return complete_with_ollama(cleaned_glosses)
+
         except Exception as error:
+            print("\n========== OLLAMA ERROR ==========")
+            traceback.print_exc()
+            print("==================================\n")
+
             fallback = rule_based_sentence(cleaned_glosses)
             fallback["fallback_reason"] = str(error)
             return fallback
@@ -389,7 +395,6 @@ def complete_sentence(
     fallback = rule_based_sentence(cleaned_glosses)
     fallback["fallback_reason"] = "Local LLM was disabled for this request."
     return fallback
-
 
 def ollama_health() -> Dict[str, Any]:
     """Check whether Ollama is reachable and whether the selected model exists."""
